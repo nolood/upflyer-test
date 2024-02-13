@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/PuerkitoBio/goquery"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/nolood/upflyer-test.git/internal/config"
 	"github.com/spf13/viper"
@@ -61,9 +62,18 @@ func main() {
 				continue
 			}
 
-			chatHistory(token, strings.Split(update.Message.Text, "/")[3])
+			data, err := getFirstPost(strings.Split(update.Message.Text, "/")[3])
+			if err != nil {
+				config.Logger.Error(err.Error())
+				continue
+			}
 
-			log.Println(channel.Description)
+			log.Println(data, "data------------------")
+			//firstMessage(bot)
+
+			//chatHistory(token, strings.Split(update.Message.Text, "/")[3]
+
+			//log.Println(channel.Description)
 
 			msgText := fmt.Sprintf("Earliest data %s: \n Title: %s", "ok", channel.Title)
 
@@ -74,44 +84,125 @@ func main() {
 	}
 }
 
-type message struct {
-	MessageID int    `json:"message_id"`
-	Text      string `json:"text"`
-}
+func getFirstPost(channelUsername string) (string, error) {
 
-type messageResponse struct {
-	Result []message `json:"result"`
-}
-
-func chatHistory(token string, channelUsername string) {
-
-	log.Println("chatHistory", channelUsername)
-
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/getChatHistory?chat_id=@%s&limit=1&chat_type=channel", token, channelUsername)
-
-	// Отправляем GET запрос к API Telegram
-	resp, err := http.Get(url)
+	log.Println("getFirstPost", channelUsername)
+	url := fmt.Sprintf("https://t.me/s/%s", channelUsername)
+	doc, err := goquery.NewDocument(url)
 	if err != nil {
-		log.Fatal(err)
-	}
-	defer resp.Body.Close()
-
-	// Читаем и декодируем JSON ответ
-	var messages messageResponse
-	if err := json.NewDecoder(resp.Body).Decode(&messages); err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
-	log.Println(messages, "messages")
-
-	// Если есть сообщение в канале, выводим его
-	if len(messages.Result) > 0 {
-		firstMessage := messages.Result[0]
-		log.Printf("First message from the channel: %v", firstMessage.Text)
-	} else {
-		log.Println("No messages found in the channel.")
+	postDiv := doc.Find(".tgme_page_post")
+	if postDiv.Length() > 0 {
+		postText := postDiv.Find(".tgme_page_post_body").Text()
+		return strings.TrimSpace(postText), nil
 	}
+
+	return "", fmt.Errorf("no post found")
 }
+
+//type MyParams struct {
+//	Peer       int64
+//	Limit      int
+//	OffsetID   int
+//	OffsetDate int
+//	AddOffset  int
+//	MaxID      int
+//	MinID      int
+//}
+
+//func firstMessage(bot *tgbotapi.BotAPI, channelID int64) {
+//
+//	params := MyParams{
+//		Peer:       channelID,
+//		Limit:      1,
+//		OffsetID:   0,
+//		OffsetDate: 0,
+//		AddOffset:  0,
+//		MaxID:      0,
+//		MinID:      0,
+//	}
+//
+//	data, err := bot.MakeRequest("messages.getHistory")
+//	if err != nil {
+//		log.Println(err)
+//	}
+//
+//	log.Println(data, "----------------data")
+//}
+
+//func firstMessage(channelID int64) {
+//	client := telegram.NewClient(telegram.TestAppID, telegram.TestAppHash, telegram.Options{
+//		//Logger: config.Logger,
+//	})
+//
+//	ctx := context.Background()
+//	if err := client.Run(ctx, func(ctx context.Context) error {
+//		peer := tg.InputPeerChannel{
+//			ChannelID:  channelID,
+//			AccessHash: 0, // Если канал публичный, то AccessHash равен 0
+//		}
+//
+//		resp, err := client.API().MessagesGetHistory(ctx, &tg.MessagesGetHistoryRequest{
+//			Peer:       &peer,
+//			Limit:      1,
+//			OffsetID:   0,
+//			OffsetDate: 0,
+//			AddOffset:  0,
+//			MaxID:      0,
+//			MinID:      0,
+//		})
+//		if err != nil {
+//			return err
+//		}
+//
+//		log.Println(resp, "resp------------------------------------+")
+//
+//		return nil
+//	}); err != nil {
+//		//config.Logger.Error(err.Error())
+//	}
+//}
+
+//type message struct {
+//	MessageID int    `json:"message_id"`
+//	Text      string `json:"text"`
+//}
+//
+//type messageResponse struct {
+//	Result []message `json:"result"`
+//}
+
+//func chatHistory(token string, channelUsername string) {
+//
+//	log.Println("chatHistory", channelUsername)
+//
+//	url := fmt.Sprintf("https://api.telegram.org/bot%s/getChatHistory?chat_id=@%s&limit=1&chat_type=channel", token, channelUsername)
+//
+//	// Отправляем GET запрос к API Telegram
+//	resp, err := http.Get(url)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	defer resp.Body.Close()
+//
+//	// Читаем и декодируем JSON ответ
+//	var messages messageResponse
+//	if err := json.NewDecoder(resp.Body).Decode(&messages); err != nil {
+//		log.Fatal(err)
+//	}
+//
+//	log.Println(messages, "messages")
+//
+//	// Если есть сообщение в канале, выводим его
+//	if len(messages.Result) > 0 {
+//		firstMessage := messages.Result[0]
+//		log.Printf("First message from the channel: %v", firstMessage.Text)
+//	} else {
+//		log.Println("No messages found in the channel.")
+//	}
+//}
 
 type GetChatResponse struct {
 	Ok     bool `json:"ok"`
